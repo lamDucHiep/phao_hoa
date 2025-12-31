@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fireworks</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+      body {
+        background: #000;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+    <script>
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+
+      let w, h;
+      function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener("resize", resize);
+
+      const fireworks = [];
+      const particles = [];
+
+      const colors = [
+        "#00d9ff",
+        "#48e5c2",
+        "#0cf574",
+        "#7afcff",
+        "#926eff",
+        "#4169e1",
+        "#1e90ff",
+        "#00bfff",
+        "#87ceeb",
+        "#5f9fff",
+        "#4682b4",
+        "#6495ed",
+      ];
+
+      class Firework {
+        constructor() {
+          this.x = Math.random() * w;
+          this.y = h;
+          this.targetY = Math.random() * h * 0.3 + h * 0.1;
+          this.speed = Math.random() * 3 + 5;
+          this.angle = Math.PI / 2;
+          this.vx = Math.cos(this.angle) * this.speed;
+          this.vy = -Math.sin(this.angle) * this.speed;
+          this.color = colors[Math.floor(Math.random() * colors.length)];
+          this.trail = [];
+          this.exploded = false;
+        }
+
+        update() {
+          this.trail.push({ x: this.x, y: this.y });
+          if (this.trail.length > 20) this.trail.shift();
+
+          this.x += this.vx;
+          this.y += this.vy;
+          this.vy += 0.05;
+
+          if (this.y <= this.targetY) {
+            this.explode();
+            this.exploded = true;
+          }
+        }
+
+        draw() {
+          ctx.shadowBlur = 15;
+          ctx.shadowColor = this.color;
+
+          for (let i = 0; i < this.trail.length; i++) {
+            const t = this.trail[i];
+            const alpha = i / this.trail.length;
+            ctx.fillStyle =
+              this.color +
+              Math.floor(alpha * 255)
+                .toString(16)
+                .padStart(2, "0");
+            ctx.fillRect(t.x - 2, t.y - 2, 4, 4);
+          }
+
+          ctx.fillStyle = this.color;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.shadowBlur = 0;
+        }
+
+        explode() {
+          const particleCount = Math.random() * 50 + 80;
+          for (let i = 0; i < particleCount; i++) {
+            particles.push(new Particle(this.x, this.y, this.color));
+          }
+        }
+      }
+
+      class Particle {
+        constructor(x, y, color) {
+          this.x = x;
+          this.y = y;
+          this.color = color;
+          const angle = Math.random() * Math.PI * 2;
+          const speed = Math.random() * 6 + 2;
+          this.vx = Math.cos(angle) * speed;
+          this.vy = Math.sin(angle) * speed;
+          this.alpha = 1;
+          this.decay = Math.random() * 0.02 + 0.01;
+          this.gravity = 0.05;
+          this.size = Math.random() * 2 + 1;
+          this.trail = [];
+        }
+
+        update() {
+          this.trail.push({ x: this.x, y: this.y, alpha: this.alpha });
+          if (this.trail.length > 8) this.trail.shift();
+
+          this.vx *= 0.98;
+          this.vy *= 0.98;
+          this.vy += this.gravity;
+          this.x += this.vx;
+          this.y += this.vy;
+          this.alpha -= this.decay;
+        }
+
+        draw() {
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = this.color;
+
+          for (let i = 0; i < this.trail.length; i++) {
+            const t = this.trail[i];
+            const trailAlpha = t.alpha * (i / this.trail.length);
+            ctx.fillStyle =
+              this.color +
+              Math.floor(trailAlpha * 255)
+                .toString(16)
+                .padStart(2, "0");
+            ctx.fillRect(t.x, t.y, this.size * 0.6, this.size * 0.6);
+          }
+
+          ctx.fillStyle =
+            this.color +
+            Math.floor(this.alpha * 255)
+              .toString(16)
+              .padStart(2, "0");
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.shadowBlur = 0;
+        }
+
+        isDead() {
+          return this.alpha <= 0;
+        }
+      }
+
+      let textOpacity = 0;
+      let textScale = 0.5;
+      let textGlow = 0;
+      const maxTextOpacity = 1;
+
+      function drawText() {
+        if (textOpacity < maxTextOpacity) {
+          textOpacity += 0.005;
+          textScale += 0.002;
+          if (textScale > 1) textScale = 1;
+        }
+
+        textGlow = Math.sin(Date.now() * 0.003) * 15 + 25;
+
+        ctx.save();
+        ctx.translate(w / 2, h * 0.2);
+        ctx.scale(textScale, textScale);
+
+        const gradient = ctx.createLinearGradient(-150, -25, 150, 25);
+        gradient.addColorStop(0, "#00d9ff");
+        gradient.addColorStop(0.3, "#1e90ff");
+        gradient.addColorStop(0.5, "#4169e1");
+        gradient.addColorStop(0.7, "#5f9fff");
+        gradient.addColorStop(1, "#48e5c2");
+
+        ctx.shadowBlur = textGlow;
+        ctx.shadowColor = "#00d9ff";
+        ctx.fillStyle = gradient;
+        ctx.globalAlpha = textOpacity;
+
+        ctx.font = "bold 30px Arial, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        ctx.fillText("CHÚC MỪNG NĂM MỚI", 0, -20);
+
+        ctx.font = "bold 35px Arial, sans-serif";
+        const nameGradient = ctx.createLinearGradient(-100, 0, 100, 0);
+        nameGradient.addColorStop(0, "#00bfff");
+        nameGradient.addColorStop(0.5, "#1e90ff");
+        nameGradient.addColorStop(1, "#4169e1");
+        ctx.fillStyle = nameGradient;
+        ctx.shadowColor = "#1e90ff";
+        ctx.fillText("NGUYỄN UYN", 0, 20);
+
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = textOpacity * 0.5;
+        ctx.font = "bold 30px Arial, sans-serif";
+        ctx.strokeText("CHÚC MỪNG NĂM MỚI", 0, -20);
+        ctx.font = "bold 35px Arial, sans-serif";
+        ctx.strokeText("NGUYỄN UYN", 0, 20);
+
+        ctx.restore();
+      }
+
+      function animate() {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+        ctx.fillRect(0, 0, w, h);
+
+        if (Math.random() < 0.05) {
+          fireworks.push(new Firework());
+        }
+
+        for (let i = fireworks.length - 1; i >= 0; i--) {
+          fireworks[i].update();
+          fireworks[i].draw();
+          if (fireworks[i].exploded) {
+            fireworks.splice(i, 1);
+          }
+        }
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+          particles[i].update();
+          particles[i].draw();
+          if (particles[i].isDead()) {
+            particles.splice(i, 1);
+          }
+        }
+
+        drawText();
+
+        requestAnimationFrame(animate);
+      }
+
+      animate();
+    </script>
+  </body>
+</html>
